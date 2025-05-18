@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>21点小游戏</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 style="font-size:3rem;letter-spacing:0.2em;">21点小游戏</h1>
+    <div class="card-table">
+        <div class="cards" id="player-cards">玩家手牌：</div>
+        <div style="margin:18px 0;font-size:1.5rem;" id="player-score">玩家点数：0</div>
+        <div class="cards" id="dealer-cards">电脑手牌：</div>
+        <div style="margin:18px 0;font-size:1.5rem;" id="dealer-score">电脑点数：0</div>
+        <button class="start-btn" id="start-btn">开始游戏</button>
+        <button class="start-btn" id="hit-btn" style="display:none;">要牌</button>
+        <button class="start-btn" id="stand-btn" style="display:none;">停牌</button>
+        <div id="result"></div>
+    </div>
+    <script>
+        // 牌面和点数
+        const cardMap = {
+            'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
+            '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10
+        };
+        // 使用公开图片替代牌面
+        const cardImgUrl = n => `https://deckofcardsapi.com/static/img/${n}.png`;
+        const cardCodeMap = {
+            'A': 'A', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7',
+            '8': '8', '9': '9', '10': '0', 'J': 'J', 'Q': 'Q', 'K': 'K'
+        };
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let gameOver = false;
+
+        const playerCardsDiv = document.getElementById('player-cards');
+        const dealerCardsDiv = document.getElementById('dealer-cards');
+        const playerScoreDiv = document.getElementById('player-score');
+        const dealerScoreDiv = document.getElementById('dealer-score');
+        const startBtn = document.getElementById('start-btn');
+        const hitBtn = document.getElementById('hit-btn');
+        const standBtn = document.getElementById('stand-btn');
+        const resultDiv = document.getElementById('result');
+
+        // 初始化一副牌
+        function initDeck() {
+            deck = [];
+            for (let key in cardMap) {
+                for (let i = 0; i < 4; i++) { // 四种花色
+                    deck.push(key);
+                }
+            }
+        }
+
+        // 洗牌
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 计算手牌点数，A可以当1或11
+        function calcScore(hand) {
+            let sum = 0;
+            let ace = 0;
+            for (let card of hand) {
+                sum += cardMap[card];
+                if (card === 'A') ace++;
+            }
+            // A当11
+            while (ace > 0 && sum + 10 <= 21) {
+                sum += 10;
+                ace--;
+            }
+            return sum;
+        }
+
+        // 显示手牌（用图片）
+        function showHand(div, hand, who, hideSecond=false) {
+            let html = (who === 'player' ? '玩家手牌：' : '电脑手牌：');
+            hand.forEach((c, i) => {
+                if (hideSecond && i === 1) {
+                    html += `<img src="https://deckofcardsapi.com/static/img/back.png" style="height:80px;margin:0 6px;vertical-align:middle;box-shadow:0 2px 12px #2226;">`;
+                } else {
+                    let code = cardCodeMap[c] + 'S';
+                    html += `<img src="${cardImgUrl(code)}" style="height:80px;margin:0 6px;vertical-align:middle;box-shadow:0 2px 12px #2226;">`;
+                }
+            });
+            div.innerHTML = html;
+        }
+
+        // 显示点数
+        function showScore(div, hand, who, hide=false) {
+            if (hide) {
+                div.innerHTML = who + '点数：?';
+            } else {
+                div.innerHTML = who + '点数：' + calcScore(hand);
+            }
+        }
+
+        // 游戏开始
+        startBtn.onclick = function() {
+            gameOver = false;
+            resultDiv.innerHTML = '';
+            initDeck();
+            shuffle(deck);
+            playerHand = [deck.pop(), deck.pop()];
+            dealerHand = [deck.pop(), deck.pop()];
+            showHand(playerCardsDiv, playerHand, 'player');
+            showHand(dealerCardsDiv, dealerHand, 'dealer', true);
+            showScore(playerScoreDiv, playerHand, '玩家');
+            showScore(dealerScoreDiv, dealerHand, '电脑', true);
+            startBtn.style.display = 'none';
+            hitBtn.style.display = 'inline-block';
+            standBtn.style.display = 'inline-block';
+        };
+
+        // 玩家要牌
+        hitBtn.onclick = function() {
+            if (gameOver) return;
+            playerHand.push(deck.pop());
+            showHand(playerCardsDiv, playerHand, 'player');
+            showScore(playerScoreDiv, playerHand, '玩家');
+            if (calcScore(playerHand) > 21) {
+                endGame();
+            }
+        };
+
+        // 玩家停牌，电脑自动补牌
+        standBtn.onclick = function() {
+            if (gameOver) return;
+            while (calcScore(dealerHand) < 17) {
+                dealerHand.push(deck.pop());
+            }
+            endGame();
+        };
+
+        // 游戏结束，判断胜负
+        function endGame() {
+            gameOver = true;
+            showHand(dealerCardsDiv, dealerHand, 'dealer');
+            showScore(dealerScoreDiv, dealerHand, '电脑');
+            showScore(playerScoreDiv, playerHand, '玩家');
+            let player = calcScore(playerHand);
+            let dealer = calcScore(dealerHand);
+            let msg = '';
+            if (player > 21) {
+                msg = '你爆了，电脑获胜！';
+            } else if (dealer > 21) {
+                msg = '电脑爆了，你获胜！';
+            } else if (player > dealer) {
+                msg = '你获胜！';
+            } else if (player < dealer) {
+                msg = '电脑获胜！';
+            } else {
+                msg = '平局！';
+            }
+            resultDiv.innerHTML = msg;
+            startBtn.style.display = 'inline-block';
+            hitBtn.style.display = 'none';
+            standBtn.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
